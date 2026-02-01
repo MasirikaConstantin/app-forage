@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:isar/isar.dart';
 import 'package:flutter/foundation.dart';
+import 'package:isar/isar.dart';
 
 import '../models/app_parameter.dart';
 import '../models/app_stats.dart';
 import '../models/app_user.dart';
+import '../models/paginated_response.dart';
 import '../models/reading.dart';
 import '../models/subscriber.dart';
 import 'api_client.dart';
@@ -19,9 +20,9 @@ class AppRepository {
     ApiClient? apiClient,
     IsarService? isarService,
     Connectivity? connectivity,
-  })  : _apiClient = apiClient ?? ApiClient(),
-        _isarService = isarService ?? IsarService.instance,
-        _connectivity = connectivity ?? Connectivity();
+  }) : _apiClient = apiClient ?? ApiClient(),
+       _isarService = isarService ?? IsarService.instance,
+       _connectivity = connectivity ?? Connectivity();
 
   static const Duration defaultSyncTtl = Duration(minutes: 10);
 
@@ -35,10 +36,7 @@ class AppRepository {
     await _isarService.init();
     final token = await loadAuthToken();
     if (token != null) {
-      _apiClient.setAuthToken(
-        token: token.token,
-        tokenType: token.tokenType,
-      );
+      _apiClient.setAuthToken(token: token.token, tokenType: token.tokenType);
     }
   }
 
@@ -68,15 +66,17 @@ class AppRepository {
     return _apiClient.fetchStats();
   }
 
-  Future<List<Reading>> fetchReadings({
+  Future<PaginatedResponse<Reading>> fetchReadings({
     String? abonneId,
     DateTime? dateFrom,
     DateTime? dateTo,
+    int page = 1,
   }) async {
     return _apiClient.fetchReadings(
       abonneId: abonneId,
       dateFrom: dateFrom,
       dateTo: dateTo,
+      page: page,
     );
   }
 
@@ -84,11 +84,15 @@ class AppRepository {
     required String abonneId,
     required DateTime date,
     required double indexValue,
+    required double prixM3,
+    required bool isPaid,
   }) async {
     return _apiClient.createReading(
       abonneId: abonneId,
       date: date,
       indexValue: indexValue,
+      prixM3: prixM3,
+      isPaid: isPaid,
     );
   }
 
@@ -122,8 +126,16 @@ class AppRepository {
     );
   }
 
+  Future<void> deleteReading(String id) async {
+    await _apiClient.deleteReading(id);
+  }
+
   Future<void> deleteFacturation(String id) async {
     await _apiClient.deleteFacturation(id);
+  }
+
+  Future<void> updateFacturationStatus(String id, bool isPaid) async {
+    await _apiClient.updateFacturationStatus(id, isPaid);
   }
 
   Future<AuthToken?> loadAuthToken() async {
@@ -131,24 +143,27 @@ class AppRepository {
   }
 
   Future<AppUser?> loadCurrentUser() async {
-    final entity =
-        await _isar.currentUserEntitys.filter().keyEqualTo('current').findFirst();
+    final entity = await _isar.currentUserEntitys
+        .filter()
+        .keyEqualTo('current')
+        .findFirst();
     if (entity == null) return null;
     return _mapCurrentUserEntity(entity);
   }
 
   Future<void> saveCurrentUser(AppUser user) async {
     await _isar.writeTxn(() async {
-      final entry = _mapCurrentUserToEntity(user)
-        ..key = 'current';
+      final entry = _mapCurrentUserToEntity(user)..key = 'current';
       await _isar.currentUserEntitys.put(entry);
     });
   }
 
   Future<void> clearCurrentUser() async {
     await _isar.writeTxn(() async {
-      final entry =
-          await _isar.currentUserEntitys.filter().keyEqualTo('current').findFirst();
+      final entry = await _isar.currentUserEntitys
+          .filter()
+          .keyEqualTo('current')
+          .findFirst();
       if (entry != null) {
         await _isar.currentUserEntitys.delete(entry.isarId);
       }
@@ -161,8 +176,10 @@ class AppRepository {
         ? await _apiClient.fetchMe()
         : await _apiClient.fetchUser(current.id);
     await _isar.writeTxn(() async {
-      final existing =
-          await _isar.userEntitys.filter().userIdEqualTo(updated.id).findFirst();
+      final existing = await _isar.userEntitys
+          .filter()
+          .userIdEqualTo(updated.id)
+          .findFirst();
       final entity = _mapUserToEntity(updated);
       if (existing != null) {
         entity.isarId = existing.isarId;
@@ -174,8 +191,10 @@ class AppRepository {
   }
 
   Future<String> deviceUuid() async {
-    final existing =
-        await _isar.deviceInfos.filter().keyEqualTo('device_uuid').findFirst();
+    final existing = await _isar.deviceInfos
+        .filter()
+        .keyEqualTo('device_uuid')
+        .findFirst();
     if (existing != null && existing.value.isNotEmpty) {
       return existing.value;
     }
@@ -214,7 +233,10 @@ class AppRepository {
       debugPrint('Logout failed: $error');
     }
     await _isar.writeTxn(() async {
-      final entry = await _isar.authTokens.filter().keyEqualTo('auth').findFirst();
+      final entry = await _isar.authTokens
+          .filter()
+          .keyEqualTo('auth')
+          .findFirst();
       if (entry != null) {
         await _isar.authTokens.delete(entry.isarId);
       }
@@ -243,8 +265,10 @@ class AppRepository {
     try {
       final updated = await _apiClient.updateUser(user.id, payload);
       await _isar.writeTxn(() async {
-        final existing =
-            await _isar.userEntitys.filter().userIdEqualTo(updated.id).findFirst();
+        final existing = await _isar.userEntitys
+            .filter()
+            .userIdEqualTo(updated.id)
+            .findFirst();
         final entity = _mapUserToEntity(updated);
         if (existing != null) {
           entity.isarId = existing.isarId;
@@ -257,8 +281,10 @@ class AppRepository {
     }
 
     await _isar.writeTxn(() async {
-      final existing =
-          await _isar.userEntitys.filter().userIdEqualTo(user.id).findFirst();
+      final existing = await _isar.userEntitys
+          .filter()
+          .userIdEqualTo(user.id)
+          .findFirst();
       final entity = _mapUserToEntity(user);
       if (existing != null) {
         entity.isarId = existing.isarId;
@@ -304,8 +330,10 @@ class AppRepository {
     try {
       await _apiClient.deleteUser(id);
       await _isar.writeTxn(() async {
-        final existing =
-            await _isar.userEntitys.filter().userIdEqualTo(id).findFirst();
+        final existing = await _isar.userEntitys
+            .filter()
+            .userIdEqualTo(id)
+            .findFirst();
         if (existing != null) {
           await _isar.userEntitys.delete(existing.isarId);
         }
@@ -316,8 +344,10 @@ class AppRepository {
     }
 
     await _isar.writeTxn(() async {
-      final existing =
-          await _isar.userEntitys.filter().userIdEqualTo(id).findFirst();
+      final existing = await _isar.userEntitys
+          .filter()
+          .userIdEqualTo(id)
+          .findFirst();
       if (existing != null) {
         await _isar.userEntitys.delete(existing.isarId);
       }
@@ -342,8 +372,10 @@ class AppRepository {
       filePath: filePath,
     );
     await _isar.writeTxn(() async {
-      final existing =
-          await _isar.userEntitys.filter().userIdEqualTo(updated.id).findFirst();
+      final existing = await _isar.userEntitys
+          .filter()
+          .userIdEqualTo(updated.id)
+          .findFirst();
       final entity = _mapUserToEntity(updated);
       if (existing != null) {
         entity.isarId = existing.isarId;
@@ -538,16 +570,16 @@ class AppRepository {
   Future<void> _replaceUsers(List<AppUser> users) async {
     await _isar.writeTxn(() async {
       await _isar.userEntitys.clear();
-      await _isar.userEntitys
-          .putAll(users.map(_mapUserToEntity).toList());
+      await _isar.userEntitys.putAll(users.map(_mapUserToEntity).toList());
     });
   }
 
   Future<void> _replaceSubscribers(List<Subscriber> subscribers) async {
     await _isar.writeTxn(() async {
       await _isar.subscriberEntitys.clear();
-      await _isar.subscriberEntitys
-          .putAll(subscribers.map(_mapSubscriberToEntity).toList());
+      await _isar.subscriberEntitys.putAll(
+        subscribers.map(_mapSubscriberToEntity).toList(),
+      );
     });
   }
 
@@ -618,8 +650,10 @@ class AppRepository {
 
   Future<PendingSyncResult> _syncSubscribersPending() async {
     try {
-      final result =
-          await _syncSubscribersInternal(force: true, onlyPending: true);
+      final result = await _syncSubscribersInternal(
+        force: true,
+        onlyPending: true,
+      );
       return result.status == SyncStatus.success
           ? PendingSyncResult.ok
           : PendingSyncResult.failed;
@@ -655,7 +689,8 @@ class AppRepository {
         .sortByCreatedAt()
         .findAll();
 
-    final shouldSync = force ||
+    final shouldSync =
+        force ||
         pending.isNotEmpty ||
         (!onlyPending && await _shouldSync('subscribers', defaultSyncTtl));
     if (!shouldSync) {
@@ -728,7 +763,8 @@ class AppRepository {
         .sortByCreatedAt()
         .findAll();
 
-    final shouldSync = force ||
+    final shouldSync =
+        force ||
         pending.isNotEmpty ||
         (!onlyPending && await _shouldSync('users', defaultSyncTtl));
     if (!shouldSync) {
@@ -737,8 +773,9 @@ class AppRepository {
 
     final payloads = pending
         .map((change) {
-          final payload =
-              _normalizeUserSyncPayload(_decodePayload(change.payload));
+          final payload = _normalizeUserSyncPayload(
+            _decodePayload(change.payload),
+          );
           if (!payload.containsKey('id') || payload['id'] == null) {
             payload['id'] = change.entityId;
           }
@@ -784,16 +821,16 @@ class AppRepository {
     return <String, dynamic>{};
   }
 
-  Map<String, dynamic> _normalizeUserSyncPayload(
-    Map<String, dynamic> payload,
-  ) {
+  Map<String, dynamic> _normalizeUserSyncPayload(Map<String, dynamic> payload) {
     if (payload.isEmpty) return payload;
     final normalized = Map<String, dynamic>.from(payload);
     normalized.remove('password');
     normalized.remove('password_confirmation');
     if (!normalized.containsKey('name')) {
       final fallback =
-          normalized['full_name'] ?? normalized['fullname'] ?? normalized['nom'];
+          normalized['full_name'] ??
+          normalized['fullname'] ??
+          normalized['nom'];
       if (fallback != null) {
         normalized['name'] = fallback.toString();
       }
@@ -826,8 +863,10 @@ class AppRepository {
     String id,
     DateTime deletedAt,
   ) async {
-    final existing =
-        await _isar.userEntitys.filter().userIdEqualTo(id).findFirst();
+    final existing = await _isar.userEntitys
+        .filter()
+        .userIdEqualTo(id)
+        .findFirst();
     if (existing != null) {
       final user = _mapUserEntity(existing);
       return user.toSyncPayload(deletedAt: deletedAt);
@@ -855,10 +894,7 @@ class AppRepository {
   }
 
   Future<int> _pendingCount(String entityType) async {
-    return _isar.pendingChanges
-        .filter()
-        .entityTypeEqualTo(entityType)
-        .count();
+    return _isar.pendingChanges.filter().entityTypeEqualTo(entityType).count();
   }
 
   Future<void> _clearPendingChanges(List<PendingChange> changes) async {
@@ -880,8 +916,7 @@ class AppRepository {
 
   Future<bool> _hasConnection() async {
     final results = await _connectivity.checkConnectivity();
-    return results.isNotEmpty &&
-        !results.contains(ConnectivityResult.none);
+    return results.isNotEmpty && !results.contains(ConnectivityResult.none);
   }
 
   UserEntity _mapUserToEntity(AppUser user) {
@@ -894,8 +929,9 @@ class AppRepository {
       ..active = user.active
       ..createdAt = user.createdAt
       ..avatarUrl = user.avatarUrl.isEmpty ? null : user.avatarUrl
-      ..avatarThumbUrl =
-          user.avatarThumbUrl.isEmpty ? null : user.avatarThumbUrl;
+      ..avatarThumbUrl = user.avatarThumbUrl.isEmpty
+          ? null
+          : user.avatarThumbUrl;
   }
 
   SubscriberEntity _mapSubscriberToEntity(Subscriber subscriber) {
@@ -936,8 +972,9 @@ class AppRepository {
       ..active = user.active
       ..createdAt = user.createdAt
       ..avatarUrl = user.avatarUrl.isEmpty ? null : user.avatarUrl
-      ..avatarThumbUrl =
-          user.avatarThumbUrl.isEmpty ? null : user.avatarThumbUrl;
+      ..avatarThumbUrl = user.avatarThumbUrl.isEmpty
+          ? null
+          : user.avatarThumbUrl;
   }
 
   AppUser _mapCurrentUserEntity(CurrentUserEntity entity) {

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/app_parameter.dart';
 import '../models/app_stats.dart';
 import '../models/app_user.dart';
+import '../models/paginated_response.dart';
 import '../models/reading.dart';
 import '../models/subscriber.dart';
 
@@ -76,12 +77,13 @@ class ApiClient {
     return items.map(Subscriber.fromApi).toList();
   }
 
-  Future<List<Reading>> fetchReadings({
+  Future<PaginatedResponse<Reading>> fetchReadings({
     String? abonneId,
     DateTime? dateFrom,
     DateTime? dateTo,
+    int page = 1,
   }) async {
-    final params = <String, String>{};
+    final params = <String, String>{'page': page.toString()};
     if (abonneId != null && abonneId.isNotEmpty) {
       params['abonne_id'] = abonneId;
     }
@@ -91,18 +93,31 @@ class ApiClient {
     if (dateTo != null) {
       params['date_to'] = dateTo.toIso8601String().split('T').first;
     }
-    final uri = Uri.parse('$baseUrl$readingsPath').replace(
-      queryParameters: params.isEmpty ? null : params,
-    );
+    final uri = Uri.parse(
+      '$baseUrl$readingsPath',
+    ).replace(queryParameters: params.isEmpty ? null : params);
 
     debugPrint('GET $uri (auth=${_token != null})');
     final response = await _client.get(uri, headers: _headers());
     debugPrint('GET releves status=${response.statusCode}');
     _ensureSuccess(response);
     final payload = jsonDecode(response.body);
+
+    // Check if payload has pagination structure
+    if (payload is Map<String, dynamic> &&
+        payload.containsKey('current_page')) {
+      return PaginatedResponse<Reading>.fromJson(payload, Reading.fromApi);
+    }
+
+    // Fallback for flat list or wrapped in data without pagination keys (legacy support)
     final items = _extractList(payload);
     debugPrint('GET releves items=${items.length}');
-    return items.map(Reading.fromApi).toList();
+    return PaginatedResponse<Reading>(
+      items: items.map(Reading.fromApi).toList(),
+      currentPage: 1,
+      lastPage: 1,
+      total: items.length,
+    );
   }
 
   Future<AppUser> fetchMe() async {
@@ -188,11 +203,15 @@ class ApiClient {
     required String abonneId,
     required DateTime date,
     required double indexValue,
+    required double prixM3,
+    required bool isPaid,
   }) async {
     final payload = <String, dynamic>{
       'abonne_id': abonneId,
       'date_releve': date.toIso8601String().split('T').first,
       'index': indexValue,
+      'prix_m3': prixM3,
+      'est_paye': isPaid,
     };
     debugPrint('POST $baseUrl$readingsPath payload=$payload');
     debugPrint('POST $baseUrl$readingsPath (auth=${_token != null})');
@@ -264,6 +283,16 @@ class ApiClient {
     return Reading.fromApi(_extractObject(responsePayload));
   }
 
+  Future<void> deleteReading(String id) async {
+    debugPrint('DELETE $baseUrl$readingsPath/$id');
+    final response = await _client.delete(
+      Uri.parse('$baseUrl$readingsPath/$id'),
+      headers: _headers(),
+    );
+    debugPrint('DELETE releves status=${response.statusCode}');
+    _ensureSuccess(response);
+  }
+
   Future<void> deleteFacturation(String id) async {
     debugPrint('DELETE $baseUrl/facturations/$id');
     final response = await _client.delete(
@@ -271,6 +300,17 @@ class ApiClient {
       headers: _headers(),
     );
     debugPrint('DELETE facturations status=${response.statusCode}');
+    _ensureSuccess(response);
+  }
+
+  Future<void> updateFacturationStatus(String id, bool isPaid) async {
+    debugPrint('PATCH $baseUrl/facturations/$id/statut');
+    final response = await _client.patch(
+      Uri.parse('$baseUrl/facturations/$id/statut'),
+      headers: _headers(),
+      body: jsonEncode(<String, dynamic>{'est_paye': isPaid}),
+    );
+    debugPrint('PATCH facturations status=${response.statusCode}');
     _ensureSuccess(response);
   }
 
@@ -429,10 +469,18 @@ class ApiClient {
   void _ensureSuccess(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;
     debugPrint('API error status=${response.statusCode} body=${response.body}');
-    throw ApiException(
-      'HTTP ${response.statusCode}: ${response.body}',
-      statusCode: response.statusCode,
-    );
+
+    String message = 'Erreur serveur (${response.statusCode})';
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded.containsKey('message')) {
+        message = decoded['message'].toString();
+      }
+    } catch (_) {
+      // Fallback to default message if parsing fails
+    }
+
+    throw ApiException(message, statusCode: response.statusCode);
   }
 
   List<Map<String, dynamic>> _extractList(dynamic payload) {

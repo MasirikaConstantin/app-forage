@@ -48,7 +48,7 @@ class _SubscribersScreenState extends State<SubscribersScreen> {
             children: <Widget>[
               FadeSlideIn(
                 child: Text(
-                  'Portefeuille abonnes',
+                  'Portefeuille abonnés',
                   style: theme.textTheme.headlineMedium,
                 ),
               ),
@@ -84,12 +84,12 @@ class _SubscribersScreenState extends State<SubscribersScreen> {
               Expanded(
                 child: subscribers.isEmpty
                     ? (store.isSyncingSubscribers
-                        ? const _LoadingState()
-                        : _EmptyState(
-                            message: 'Aucun abonne trouve.',
-                            actionLabel: 'Ajouter un abonne',
-                            onAction: () => _openCreate(context),
-                          ))
+                          ? const _LoadingState()
+                          : _EmptyState(
+                              message: 'Aucun abonné trouvé.',
+                              actionLabel: 'Ajouter un abonné',
+                              onAction: () => _openCreate(context),
+                            ))
                     : LayoutBuilder(
                         builder: (context, constraints) {
                           final width = constraints.maxWidth;
@@ -101,11 +101,11 @@ class _SubscribersScreenState extends State<SubscribersScreen> {
                             padding: EdgeInsets.zero,
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              mainAxisExtent: mainAxisExtent,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisExtent: mainAxisExtent,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             itemCount: subscribers.length,
                             itemBuilder: (context, index) {
                               final subscriber = subscribers[index];
@@ -154,7 +154,9 @@ class _SubscribersScreenState extends State<SubscribersScreen> {
     final result = await store.syncSubscribers(force: true);
     if (!context.mounted) return;
     final message = result.message ?? 'Synchronisation terminee';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openCreate(BuildContext context) async {
@@ -288,7 +290,7 @@ class _LoadingState extends StatelessWidget {
         children: <Widget>[
           CircularProgressIndicator(),
           SizedBox(height: 12),
-          Text('Chargement des abonnes...'),
+          Text('Chargement des abonnés...'),
         ],
       ),
     );

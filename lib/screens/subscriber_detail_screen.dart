@@ -24,9 +24,7 @@ class SubscriberDetailScreen extends StatelessWidget {
     final current = subscriber;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Details abonne'),
-      ),
+      appBar: AppBar(title: const Text('Détails abonné')),
       body: current == null
           ? _MissingSubscriber(onBack: () => Navigator.of(context).pop())
           : SafeArea(
@@ -37,10 +35,8 @@ class SubscriberDetailScreen extends StatelessWidget {
                   _InfoGrid(subscriber: current),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: () => showSubscriberFormDialog(
-                      context,
-                      subscriber: current,
-                    ),
+                    onPressed: () =>
+                        showSubscriberFormDialog(context, subscriber: current),
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Modifier'),
                   ),
@@ -56,12 +52,15 @@ class SubscriberDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, Subscriber subscriber) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    Subscriber subscriber,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Supprimer abonne'),
+          title: const Text('Supprimer abonné'),
           content: Text('Retirer ${subscriber.fullName} ?'),
           actions: <Widget>[
             TextButton(
@@ -217,12 +216,9 @@ class _MissingSubscriber extends StatelessWidget {
           children: <Widget>[
             const Icon(Icons.warning_amber_outlined, size: 40),
             const SizedBox(height: 12),
-            const Text('Abonne introuvable.'),
+            const Text('Abonné introuvable.'),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onBack,
-              child: const Text('Retour'),
-            ),
+            ElevatedButton(onPressed: onBack, child: const Text('Retour')),
           ],
         ),
       ),

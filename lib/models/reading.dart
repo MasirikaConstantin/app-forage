@@ -19,7 +19,7 @@ class Reading {
     this.pricePerM3,
     this.consumptionM3,
     this.isPaid,
-    this.facturations = const <Facturation>[],
+    this.facturation,
   });
 
   final String id;
@@ -41,15 +41,15 @@ class Reading {
   final double? pricePerM3;
   final double? consumptionM3;
   final bool? isPaid;
-  final List<Facturation> facturations;
+  final Facturation? facturation;
 
   static Reading fromApi(Map<String, dynamic> json) {
     final id = _stringFromKeys(json, <String>['id']) ?? '';
     final subscriberId =
         _stringFromKeys(json, <String>['abonne_id', 'subscriber_id']) ?? '';
     final createdById = _stringFromKeys(json, <String>['created_by']) ?? '';
-    final date = _dateFromKeys(json, <String>['date_releve', 'date']) ??
-        DateTime.now();
+    final date =
+        _dateFromKeys(json, <String>['date_releve', 'date']) ?? DateTime.now();
     final indexValue =
         _doubleFromKeys(json, <String>['index', 'index_value']) ?? 0;
     final createdAt =
@@ -58,26 +58,22 @@ class Reading {
         _dateFromKeys(json, <String>['updated_at']) ?? DateTime.now();
     final cumulativeIndex =
         _doubleFromKeys(json, <String>['cumul_index']) ?? null;
-    final facturationsRaw = json['facturations'];
-    final facturationsList = facturationsRaw is List
-        ? facturationsRaw
-            .whereType<Map>()
-            .map((item) => Facturation.fromApi(Map<String, dynamic>.from(item)))
-            .toList()
-        : <Facturation>[];
-    final facturationCount =
-        facturationsRaw is List ? facturationsRaw.length : null;
-    final firstFacturation =
-        facturationsList.isNotEmpty ? facturationsList.first : null;
-    final facturationPeriod = firstFacturation?.period;
-    final facturationAmount = firstFacturation?.totalAmount;
-    final pricePerM3 = firstFacturation?.pricePerM3;
-    final consumptionM3 = firstFacturation?.consumptionM3;
-    final isPaid = firstFacturation?.isPaid;
+
+    final facturationRaw = json['facturation'];
+    final facturation = facturationRaw is Map<String, dynamic>
+        ? Facturation.fromApi(facturationRaw)
+        : null;
+
+    final facturationPeriod = facturation?.period;
+    final facturationAmount = facturation?.totalAmount;
+    final pricePerM3 = facturation?.pricePerM3;
+    final consumptionM3 = facturation?.consumptionM3;
+    final isPaid = facturation?.isPaid;
 
     final abonneRaw = json['abonne'];
-    final abonne =
-        abonneRaw is Map ? Map<String, dynamic>.from(abonneRaw) : null;
+    final abonne = abonneRaw is Map
+        ? Map<String, dynamic>.from(abonneRaw)
+        : null;
     final subscriberName = abonne == null
         ? null
         : _composeName(
@@ -85,12 +81,14 @@ class Reading {
             _stringFromKeys(abonne, <String>['prenom']),
             _stringFromKeys(abonne, <String>['name']) ?? '',
           );
-    final subscriberEmail =
-        abonne == null ? null : _stringFromKeys(abonne, <String>['email']);
+    final subscriberEmail = abonne == null
+        ? null
+        : _stringFromKeys(abonne, <String>['email']);
 
     final createdByRaw = json['createdBy'];
-    final createdBy =
-        createdByRaw is Map ? Map<String, dynamic>.from(createdByRaw) : null;
+    final createdBy = createdByRaw is Map
+        ? Map<String, dynamic>.from(createdByRaw)
+        : null;
     final createdByName = createdBy == null
         ? null
         : _stringFromKeys(createdBy, <String>['name']) ?? '';
@@ -110,7 +108,6 @@ class Reading {
       createdAt: createdAt,
       updatedAt: updatedAt,
       cumulativeIndex: cumulativeIndex,
-      facturationCount: facturationCount,
       subscriberName: subscriberName,
       subscriberEmail: subscriberEmail,
       createdByName: createdByName,
@@ -121,14 +118,57 @@ class Reading {
       pricePerM3: pricePerM3,
       consumptionM3: consumptionM3,
       isPaid: isPaid,
-      facturations: facturationsList,
+      facturation: facturation,
     );
   }
 
-  static String? _stringFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  Reading copyWith({
+    String? id,
+    String? subscriberId,
+    String? createdBy,
+    DateTime? date,
+    double? indexValue,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    double? cumulativeIndex,
+    int? facturationCount,
+    String? subscriberName,
+    String? subscriberEmail,
+    String? createdByName,
+    String? createdByEmail,
+    String? createdByAvatarUrl,
+    String? facturationPeriod,
+    double? facturationAmount,
+    double? pricePerM3,
+    double? consumptionM3,
+    bool? isPaid,
+    Facturation? facturation,
+  }) {
+    return Reading(
+      id: id ?? this.id,
+      subscriberId: subscriberId ?? this.subscriberId,
+      createdBy: createdBy ?? this.createdBy,
+      date: date ?? this.date,
+      indexValue: indexValue ?? this.indexValue,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      cumulativeIndex: cumulativeIndex ?? this.cumulativeIndex,
+      facturationCount: facturationCount ?? this.facturationCount,
+      subscriberName: subscriberName ?? this.subscriberName,
+      subscriberEmail: subscriberEmail ?? this.subscriberEmail,
+      createdByName: createdByName ?? this.createdByName,
+      createdByEmail: createdByEmail ?? this.createdByEmail,
+      createdByAvatarUrl: createdByAvatarUrl ?? this.createdByAvatarUrl,
+      facturationPeriod: facturationPeriod ?? this.facturationPeriod,
+      facturationAmount: facturationAmount ?? this.facturationAmount,
+      pricePerM3: pricePerM3 ?? this.pricePerM3,
+      consumptionM3: consumptionM3 ?? this.consumptionM3,
+      isPaid: isPaid ?? this.isPaid,
+      facturation: facturation ?? this.facturation,
+    );
+  }
+
+  static String? _stringFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is String && value.trim().isNotEmpty) {
@@ -141,10 +181,7 @@ class Reading {
     return null;
   }
 
-  static DateTime? _dateFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static DateTime? _dateFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is String && value.isNotEmpty) {
@@ -157,10 +194,7 @@ class Reading {
     return null;
   }
 
-  static double? _doubleFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static double? _doubleFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is num) return value.toDouble();
@@ -214,14 +248,37 @@ class Facturation {
   final DateTime createdAt;
   final bool? isActive;
 
+  Facturation copyWith({
+    String? id,
+    String? period,
+    String? currency,
+    double? totalAmount,
+    double? pricePerM3,
+    double? consumptionM3,
+    bool? isPaid,
+    DateTime? createdAt,
+    bool? isActive,
+  }) {
+    return Facturation(
+      id: id ?? this.id,
+      period: period ?? this.period,
+      currency: currency ?? this.currency,
+      totalAmount: totalAmount ?? this.totalAmount,
+      pricePerM3: pricePerM3 ?? this.pricePerM3,
+      consumptionM3: consumptionM3 ?? this.consumptionM3,
+      isPaid: isPaid ?? this.isPaid,
+      createdAt: createdAt ?? this.createdAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
+
   static Facturation fromApi(Map<String, dynamic> json) {
     final id = Reading._stringFromKeys(json, <String>['id']) ?? '';
     final period = Reading._stringFromKeys(json, <String>['periode']) ?? '';
     final currency = Reading._stringFromKeys(json, <String>['devise']) ?? 'CDF';
     final totalAmount =
         Reading._doubleFromKeys(json, <String>['montant_total']) ?? 0;
-    final pricePerM3 =
-        Reading._doubleFromKeys(json, <String>['prix_m3']) ?? 0;
+    final pricePerM3 = Reading._doubleFromKeys(json, <String>['prix_m3']) ?? 0;
     final consumptionM3 =
         Reading._doubleFromKeys(json, <String>['consommation_m3']) ?? 0;
     final isPaid = Reading._boolFromKeys(json, <String>['est_paye']) ?? false;

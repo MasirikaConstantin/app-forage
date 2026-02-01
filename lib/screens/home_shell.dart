@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/app_scope.dart';
+import 'account_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 import 'parameters_screen.dart';
 import 'readings_screen.dart';
 import 'subscribers_screen.dart';
 import 'users_screen.dart';
-import 'account_screen.dart';
-import '../widgets/app_scope.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -86,8 +86,9 @@ class _HomeShellState extends State<HomeShell> {
                       color: theme.colorScheme.surface,
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.08),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.08,
+                          ),
                           blurRadius: 12,
                           offset: const Offset(0, -2),
                         ),
@@ -97,8 +98,8 @@ class _HomeShellState extends State<HomeShell> {
                       type: BottomNavigationBarType.fixed,
                       currentIndex: _index,
                       selectedItemColor: theme.colorScheme.primary,
-                      unselectedItemColor:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      unselectedItemColor: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.6),
                       backgroundColor: theme.colorScheme.surface,
                       showUnselectedLabels: true,
                       onTap: (value) {
@@ -126,8 +127,8 @@ class _HomeShellState extends State<HomeShell> {
     return const <_NavItem>[
       _NavItem(title: 'Accueil', icon: Icons.home_outlined),
       _NavItem(title: 'Utilisateurs', icon: Icons.people_outline),
-      _NavItem(title: 'Abonnes', icon: Icons.water_drop_outlined),
-      _NavItem(title: 'Releves', icon: Icons.list_alt_outlined),
+      _NavItem(title: 'Abonnés', icon: Icons.water_drop_outlined),
+      _NavItem(title: 'Relevés', icon: Icons.list_alt_outlined),
       _NavItem(title: 'Compte', icon: Icons.person_outline),
     ];
   }
@@ -162,9 +163,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Future<void> _openParameters(BuildContext context) async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const ParametersScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (context) => const ParametersScreen()),
     );
   }
 }

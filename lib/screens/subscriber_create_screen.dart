@@ -70,9 +70,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
         ),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Abonne enregistre')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Abonné enregistré')));
         Navigator.of(context).pop();
       }
     } catch (error) {
@@ -94,7 +94,7 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
   Widget build(BuildContext context) {
     final formatter = DateFormat('dd/MM/yyyy');
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvel abonne')),
+      appBar: AppBar(title: const Text('Nouvel abonné')),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -117,7 +117,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                             child: TextFormField(
                               controller: _nomController,
                               textInputAction: TextInputAction.next,
-                              decoration: const InputDecoration(labelText: 'Nom'),
+                              decoration: const InputDecoration(
+                                labelText: 'Nom',
+                              ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
                                   return 'Entrez le nom';
@@ -130,8 +132,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                             child: TextFormField(
                               controller: _prenomController,
                               textInputAction: TextInputAction.next,
-                              decoration:
-                                  const InputDecoration(labelText: 'Prenom'),
+                              decoration: const InputDecoration(
+                                labelText: 'Prenom',
+                              ),
                               validator: (_) => null,
                             ),
                           ),
@@ -153,7 +156,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                         TextFormField(
                           controller: _prenomController,
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(labelText: 'Prenom'),
+                          decoration: const InputDecoration(
+                            labelText: 'Prenom',
+                          ),
                           validator: (_) => null,
                         ),
                       const SizedBox(height: 12),
@@ -164,8 +169,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               textInputAction: TextInputAction.next,
-                              decoration:
-                                  const InputDecoration(labelText: 'Email'),
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                              ),
                               validator: (_) => null,
                             ),
                           ),
@@ -174,8 +180,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                               controller: _telephoneController,
                               keyboardType: TextInputType.number,
                               textInputAction: TextInputAction.next,
-                              decoration:
-                                  const InputDecoration(labelText: 'Telephone'),
+                              decoration: const InputDecoration(
+                                labelText: 'Telephone',
+                              ),
                               validator: (_) => null,
                             ),
                           ),
@@ -193,8 +200,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                           controller: _telephoneController,
                           keyboardType: TextInputType.number,
                           textInputAction: TextInputAction.next,
-                          decoration:
-                              const InputDecoration(labelText: 'Telephone'),
+                          decoration: const InputDecoration(
+                            labelText: 'Telephone',
+                          ),
                           validator: (_) => null,
                         ),
                       ],
@@ -205,8 +213,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                             child: TextFormField(
                               controller: _adresseController,
                               textInputAction: TextInputAction.next,
-                              decoration:
-                                  const InputDecoration(labelText: 'Adresse'),
+                              decoration: const InputDecoration(
+                                labelText: 'Adresse',
+                              ),
                               validator: (_) => null,
                             ),
                           ),
@@ -225,15 +234,18 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                         TextFormField(
                           controller: _adresseController,
                           textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(labelText: 'Adresse'),
+                          decoration: const InputDecoration(
+                            labelText: 'Adresse',
+                          ),
                           validator: (_) => null,
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _professionController,
                           textInputAction: TextInputAction.next,
-                          decoration:
-                              const InputDecoration(labelText: 'Profession'),
+                          decoration: const InputDecoration(
+                            labelText: 'Profession',
+                          ),
                           validator: (_) => null,
                         ),
                       ],
@@ -242,13 +254,17 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                         onTap: _pickDate,
                         borderRadius: BorderRadius.circular(12),
                         child: InputDecorator(
-                          decoration:
-                              const InputDecoration(labelText: 'Date naissance'),
+                          decoration: const InputDecoration(
+                            labelText: 'Date naissance',
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: <Widget>[
                               Text(formatter.format(_dateNaissance)),
-                              const Icon(Icons.calendar_today_outlined, size: 18),
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
                             ],
                           ),
                         ),
@@ -271,7 +287,9 @@ class _SubscriberCreateScreenState extends State<SubscriberCreateScreen> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text('Enregistrer'),
                       ),
@@ -312,11 +330,6 @@ class _FieldBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        child,
-        const SizedBox(height: 12),
-      ],
-    );
+    return Column(children: <Widget>[child, const SizedBox(height: 12)]);
   }
 }

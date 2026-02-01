@@ -63,13 +63,13 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.people_outline,
       ),
       SummaryCard(
-        title: 'Abonnes',
+        title: 'Abonnés',
         value: (stats?.abonnes.total ?? store.subscribers.length).toString(),
         icon: Icons.water_drop_outlined,
         accentColor: const Color(0xFF0B6E4F),
       ),
       SummaryCard(
-        title: 'Releves',
+        title: 'Relevés',
         value: (stats?.releves.total ?? 0).toString(),
         icon: Icons.list_alt_outlined,
       ),
@@ -79,7 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.receipt_long_outlined,
         accentColor: const Color(0xFFD98C3F),
       ),
-      
     ];
 
     final details = stats == null
@@ -88,20 +87,27 @@ class _HomeScreenState extends State<HomeScreen> {
             _StatItem('Utilisateurs actifs', stats.users.active.toString()),
             _StatItem('Utilisateurs inactifs', stats.users.inactive.toString()),
             _StatItem('Roles', _formatMap(stats.users.byRole)),
-            _StatItem('Abonnes actifs', stats.abonnes.active.toString()),
-            _StatItem('Abonnes inactifs', stats.abonnes.inactive.toString()),
-            _StatItem('Releves somme index',
-                formatter.format(stats.releves.sumIndex)),
-            _StatItem('Releves max cumul',
-                formatter.format(stats.releves.maxCumulIndex)),
-            _StatItem('Releves derniere date', stats.releves.lastDate),
-            _StatItem('Facturations payees', stats.facturations.payees.toString()),
+            _StatItem('Abonnés actifs', stats.abonnes.active.toString()),
+            _StatItem('Abonnés inactifs', stats.abonnes.inactive.toString()),
             _StatItem(
-              'Facturations impayees',
+              'Relevés somme index',
+              formatter.format(stats.releves.sumIndex),
+            ),
+            _StatItem(
+              'Relevés max cumul',
+              formatter.format(stats.releves.maxCumulIndex),
+            ),
+            _StatItem('Relevés dernière date', stats.releves.lastDate),
+            _StatItem(
+              'Facturations payées',
+              stats.facturations.payees.toString(),
+            ),
+            _StatItem(
+              'Facturations impayées',
               stats.facturations.impayees.toString(),
             ),
             _StatItem(
-              'Montant impayes',
+              'Montant impayés',
               formatter.format(stats.facturations.montantImpayes),
             ),
             _StatItem(
@@ -110,19 +116,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             _StatItem('Derniere periode', stats.facturations.lastPeriode),
             _StatItem('Parametres actifs', stats.parametres.active.toString()),
-            _StatItem('Parametres inactifs', stats.parametres.inactive.toString()),
+            _StatItem(
+              'Parametres inactifs',
+              stats.parametres.inactive.toString(),
+            ),
             _StatItem('Sync total', stats.syncLogs.total.toString()),
             _StatItem('Derniere sync', stats.syncLogs.lastSyncAt),
-            _StatItem('Devices distincts', stats.syncLogs.distinctDevices.toString()),
+            _StatItem(
+              'Devices distincts',
+              stats.syncLogs.distinctDevices.toString(),
+            ),
             _StatItem('User devices total', stats.userDevices.total.toString()),
-            _StatItem('Users distincts', stats.userDevices.distinctUsers.toString()),
+            _StatItem(
+              'Users distincts',
+              stats.userDevices.distinctUsers.toString(),
+            ),
             _StatItem('Dernier usage', stats.userDevices.lastUsedAt),
             _StatItem('Logs total', stats.userLogs.total.toString()),
             _StatItem('Logs 7 jours', stats.userLogs.last7Days.toString()),
             _StatItem('Actions', _formatMap(stats.userLogs.byAction)),
-            _StatItem('Tokens total', stats.tokens.total.toString()),
-            _StatItem('Tokens expiry', stats.tokens.withExpiry.toString()),
-            _StatItem('Tokens dernier usage', stats.tokens.lastUsedAt),
             _StatItem('Media total', stats.media.total.toString()),
             _StatItem('Taille media', formatter.format(stats.media.totalSize)),
             _StatItem('Genere le', stats.generatedAt ?? '-'),
@@ -187,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _InfoCard(
                 title: 'Suivi quotidien',
                 description:
-                    'Utilisez les menus Utilisateurs, Abonnes et Releves pour modifier ou consulter les fiches.',
+                    'Utilisez les menus Utilisateurs, Abonnés et Relevés pour modifier ou consulter les fiches.',
                 icon: Icons.fact_check_outlined,
               ),
             ),

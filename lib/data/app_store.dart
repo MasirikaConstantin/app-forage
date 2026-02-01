@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/app_parameter.dart';
 import '../models/app_stats.dart';
 import '../models/app_user.dart';
+import '../models/paginated_response.dart';
 import '../models/reading.dart';
 import '../models/subscriber.dart';
 import 'app_repository.dart';
@@ -150,15 +151,17 @@ class AppStore extends ChangeNotifier {
     return token != null && token.token.isNotEmpty;
   }
 
-  Future<List<Reading>> fetchReadings({
+  Future<PaginatedResponse<Reading>> fetchReadings({
     String? abonneId,
     DateTime? dateFrom,
     DateTime? dateTo,
+    int page = 1,
   }) async {
     return _repository.fetchReadings(
       abonneId: abonneId,
       dateFrom: dateFrom,
       dateTo: dateTo,
+      page: page,
     );
   }
 
@@ -182,11 +185,15 @@ class AppStore extends ChangeNotifier {
     required String abonneId,
     required DateTime date,
     required double indexValue,
+    required double prixM3,
+    required bool isPaid,
   }) async {
     return _repository.createReading(
       abonneId: abonneId,
       date: date,
       indexValue: indexValue,
+      prixM3: prixM3,
+      isPaid: isPaid,
     );
   }
 
@@ -220,8 +227,16 @@ class AppStore extends ChangeNotifier {
     );
   }
 
+  Future<void> deleteReading(String id) async {
+    await _repository.deleteReading(id);
+  }
+
   Future<void> deleteFacturation(String id) async {
     await _repository.deleteFacturation(id);
+  }
+
+  Future<void> updateFacturationStatus(String id, bool isPaid) async {
+    await _repository.updateFacturationStatus(id, isPaid);
   }
 
   Future<SyncResult> syncUsers({bool force = false}) async {

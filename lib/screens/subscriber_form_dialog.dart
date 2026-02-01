@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 import '../models/subscriber.dart';
 import '../widgets/app_scope.dart';
 
-Future<void> showSubscriberFormDialog(BuildContext context,
-    {Subscriber? subscriber}) async {
+Future<void> showSubscriberFormDialog(
+  BuildContext context, {
+  Subscriber? subscriber,
+}) async {
   await showDialog<void>(
     context: context,
     builder: (context) => SubscriberFormDialog(subscriber: subscriber),
@@ -35,16 +37,21 @@ class _SubscriberFormDialogState extends State<SubscriberFormDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController =
-        TextEditingController(text: widget.subscriber?.fullName ?? '');
-    _emailController =
-        TextEditingController(text: widget.subscriber?.email ?? '');
-    _phoneController =
-        TextEditingController(text: widget.subscriber?.phone ?? '');
-    _locationController =
-        TextEditingController(text: widget.subscriber?.location ?? '');
-    _professionController =
-        TextEditingController(text: widget.subscriber?.plan ?? '');
+    _nameController = TextEditingController(
+      text: widget.subscriber?.fullName ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.subscriber?.email ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: widget.subscriber?.phone ?? '',
+    );
+    _locationController = TextEditingController(
+      text: widget.subscriber?.location ?? '',
+    );
+    _professionController = TextEditingController(
+      text: widget.subscriber?.plan ?? '',
+    );
     _active = widget.subscriber?.active ?? true;
     _startDate = widget.subscriber?.startDate ?? DateTime.now();
   }
@@ -79,29 +86,29 @@ class _SubscriberFormDialogState extends State<SubscriberFormDialog> {
         await store.addSubscriber(
           Subscriber(
             id: DateTime.now().microsecondsSinceEpoch.toString(),
-          fullName: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          phone: _phoneController.text.trim(),
-          location: _locationController.text.trim(),
-          plan: professionController.text.trim(),
-          active: _active,
-          startDate: _startDate,
-          monthlyFee: 0,
-        ),
-      );
+            fullName: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
+            location: _locationController.text.trim(),
+            plan: professionController.text.trim(),
+            active: _active,
+            startDate: _startDate,
+            monthlyFee: 0,
+          ),
+        );
       } else {
         await store.updateSubscriber(
           widget.subscriber!.copyWith(
-          fullName: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          phone: _phoneController.text.trim(),
-          location: _locationController.text.trim(),
-          plan: professionController.text.trim(),
-          active: _active,
-          startDate: _startDate,
-          monthlyFee: widget.subscriber!.monthlyFee,
-        ),
-      );
+            fullName: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
+            location: _locationController.text.trim(),
+            plan: professionController.text.trim(),
+            active: _active,
+            startDate: _startDate,
+            monthlyFee: widget.subscriber!.monthlyFee,
+          ),
+        );
       }
 
       if (mounted) {
@@ -135,7 +142,9 @@ class _SubscriberFormDialogState extends State<SubscriberFormDialog> {
     final formatter = DateFormat('dd/MM/yyyy');
 
     return AlertDialog(
-      title: Text(widget.subscriber == null ? 'Nouvel abonne' : 'Modifier abonne'),
+      title: Text(
+        widget.subscriber == null ? 'Nouvel abonné' : 'Modifier abonné',
+      ),
       content: SizedBox(
         width: 440,
         child: Form(
@@ -195,7 +204,9 @@ class _SubscriberFormDialogState extends State<SubscriberFormDialog> {
                   onTap: _pickDate,
                   borderRadius: BorderRadius.circular(12),
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Date de debut'),
+                    decoration: const InputDecoration(
+                      labelText: 'Date de debut',
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[

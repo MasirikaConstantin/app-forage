@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/reading.dart';
-import '../models/subscriber.dart';
 import '../widgets/app_scope.dart';
 import '../widgets/decorated_background.dart';
 import '../widgets/fade_slide_in.dart';
-import 'reading_detail_screen.dart';
 import 'reading_create_screen.dart';
+import 'reading_detail_screen.dart';
 
 class ReadingsScreen extends StatefulWidget {
   const ReadingsScreen({super.key});
@@ -17,12 +16,35 @@ class ReadingsScreen extends StatefulWidget {
 }
 
 class _ReadingsScreenState extends State<ReadingsScreen> {
+  final ScrollController _scrollController = ScrollController();
   String? _subscriberId;
   DateTime? _dateFrom;
   DateTime? _dateTo;
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   bool _bootstrapped = false;
   List<Reading> _readings = <Reading>[];
+  int _page = 1;
+  bool _hasMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -32,35 +54,77 @@ class _ReadingsScreenState extends State<ReadingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       AppScope.of(context).syncSubscribers(force: true);
-      _loadReadings();
+      _loadReadings(refresh: true);
     });
   }
 
-  Future<void> _loadReadings() async {
+  Future<void> _loadReadings({bool refresh = false}) async {
     if (_isLoading) return;
     setState(() {
       _isLoading = true;
+      if (refresh) {
+        _page = 1;
+        _readings.clear();
+        _hasMore = true;
+      }
     });
     final store = AppScope.of(context);
     try {
-      final items = await store.fetchReadings(
+      final response = await store.fetchReadings(
         abonneId: _subscriberId,
         dateFrom: _dateFrom,
         dateTo: _dateTo,
+        page: _page,
       );
       if (!mounted) return;
       setState(() {
-        _readings = items;
+        if (refresh) {
+          _readings = response.items;
+        } else {
+          _readings.addAll(response.items);
+        }
+        _hasMore = response.currentPage < response.lastPage;
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $error')));
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoading || _isLoadingMore || !_hasMore) return;
+    setState(() {
+      _isLoadingMore = true;
+    });
+    final store = AppScope.of(context);
+    try {
+      final response = await store.fetchReadings(
+        abonneId: _subscriberId,
+        dateFrom: _dateFrom,
+        dateTo: _dateTo,
+        page: _page + 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _readings.addAll(response.items);
+        _page++;
+        _hasMore = response.currentPage < response.lastPage;
+      });
+    } catch (error) {
+      // Silent error or retry snackbar
+      debugPrint('Error loading more: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
         });
       }
     }
@@ -109,156 +173,189 @@ class _ReadingsScreenState extends State<ReadingsScreen> {
       accents: const <Widget>[],
       child: Stack(
         children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              FadeSlideIn(
-                child: Text(
-                  'Releves',
-                  style: theme.textTheme.headlineMedium,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Consultez les index des abonnes.',
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 18),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth >= 900;
-                  final fieldWidth = isWide ? 260.0 : constraints.maxWidth;
-                  final dateWidth = isWide ? 200.0 : constraints.maxWidth;
-                  final buttonWidth = isWide ? 160.0 : constraints.maxWidth;
-                  return Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: <Widget>[
-                      SizedBox(
-                        width: fieldWidth,
-                        child: DropdownButtonFormField<String?>(
-                          value: subscribers.any((s) => s.id == _subscriberId)
-                              ? _subscriberId
-                              : null,
-                          isExpanded: true,
-                          menuMaxHeight: 360,
-                          items: <DropdownMenuItem<String?>>[
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('Tous les abonnes'),
-                            ),
-                            ...subscribers.map(
-                              (subscriber) => DropdownMenuItem<String?>(
-                                value: subscriber.id,
-                                child: Text(
-                                  subscriber.fullName.isEmpty
-                                      ? subscriber.id
-                                      : subscriber.fullName,
-                    ),
-                  ),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _subscriberId = value;
-                            });
-                          },
-                          decoration: const InputDecoration(
-                            labelText: 'Abonne',
+          RefreshIndicator(
+            onRefresh: () async => _loadReadings(refresh: true),
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: <Widget>[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        FadeSlideIn(
+                          child: Text(
+                            'Relevés',
+                            style: theme.textTheme.headlineMedium,
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: dateWidth,
-                        child: _DateField(
-                          label: 'Du',
-                          value: _dateFrom,
-                          onTap: _pickDateFrom,
-                          onClear: _dateFrom == null
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _dateFrom = null;
-                                  });
-                                },
+                        const SizedBox(height: 6),
+                        Text(
+                          'Consultez les index des abonnés.',
+                          style: theme.textTheme.bodyMedium,
                         ),
-                      ),
-                      SizedBox(
-                        width: dateWidth,
-                        child: _DateField(
-                          label: 'Au',
-                          value: _dateTo,
-                          onTap: _pickDateTo,
-                          onClear: _dateTo == null
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _dateTo = null;
-                                  });
-                                },
-                        ),
-                      ),
-                      SizedBox(
-                        width: buttonWidth,
-                        child: ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _loadReadings,
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.filter_alt_outlined),
-                          label: const Text('Filtrer'),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _readings.isEmpty
-                    ? (_isLoading
-                        ? const _LoadingState()
-                        : const _EmptyState())
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          final computed = (width / 280).floor();
-                          final crossAxisCount = computed.clamp(1, 3);
-                          const mainAxisExtent = 96.0;
-
-                          return GridView.builder(
-                            padding: EdgeInsets.zero,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              mainAxisExtent: mainAxisExtent,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
-                            itemCount: _readings.length,
-                            itemBuilder: (context, index) {
-                              final reading = _readings[index];
-                              final name =
-                                  subscriberNames[reading.subscriberId] ??
-                                      reading.subscriberId;
-                              return FadeSlideIn(
-                                delay: Duration(milliseconds: 30 * index),
-                                child: _ReadingCard(
-                                  reading: reading,
-                                  subscriberName: name,
-                                  onTap: () => _openDetails(reading.id),
+                        const SizedBox(height: 18),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth >= 900;
+                            final fieldWidth = isWide
+                                ? 260.0
+                                : constraints.maxWidth;
+                            final dateWidth = isWide
+                                ? 200.0
+                                : constraints.maxWidth;
+                            final buttonWidth = isWide
+                                ? 160.0
+                                : constraints.maxWidth;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: <Widget>[
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: DropdownButtonFormField<String?>(
+                                    value:
+                                        subscribers.any(
+                                          (s) => s.id == _subscriberId,
+                                        )
+                                        ? _subscriberId
+                                        : null,
+                                    isExpanded: true,
+                                    menuMaxHeight: 360,
+                                    items: <DropdownMenuItem<String?>>[
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('Tous les abonnés'),
+                                      ),
+                                      ...subscribers.map(
+                                        (subscriber) =>
+                                            DropdownMenuItem<String?>(
+                                              value: subscriber.id,
+                                              child: Text(
+                                                subscriber.fullName.isEmpty
+                                                    ? subscriber.id
+                                                    : subscriber.fullName,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _subscriberId = value;
+                                      });
+                                    },
+                                    decoration: const InputDecoration(
+                                      labelText: 'Abonné',
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
+                                SizedBox(
+                                  width: dateWidth,
+                                  child: _DateField(
+                                    label: 'Du',
+                                    value: _dateFrom,
+                                    onTap: _pickDateFrom,
+                                    onClear: _dateFrom == null
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _dateFrom = null;
+                                            });
+                                          },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: dateWidth,
+                                  child: _DateField(
+                                    label: 'Au',
+                                    value: _dateTo,
+                                    onTap: _pickDateTo,
+                                    onClear: _dateTo == null
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _dateTo = null;
+                                            });
+                                          },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: buttonWidth,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _isLoading
+                                        ? null
+                                        : () => _loadReadings(refresh: true),
+                                    icon: _isLoading
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.filter_alt_outlined),
+                                    label: const Text('Filtrer'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_readings.isEmpty)
+                  SliverFillRemaining(
+                    child: _isLoading
+                        ? const _LoadingState()
+                        : const _EmptyState(),
+                  )
+                else ...<Widget>[
+                  SliverLayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.crossAxisExtent;
+                      final computed = (width / 280).floor();
+                      final crossAxisCount = computed.clamp(1, 3);
+                      const mainAxisExtent = 96.0;
+
+                      return SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisExtent: mainAxisExtent,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                        ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final reading = _readings[index];
+                          final name =
+                              subscriberNames[reading.subscriberId] ??
+                              reading.subscriberId;
+                          return FadeSlideIn(
+                            delay: Duration(milliseconds: 30 * index),
+                            child: _ReadingCard(
+                              reading: reading,
+                              subscriberName: name,
+                              onTap: () => _openDetails(reading.id),
+                            ),
                           );
-                        },
+                        }, childCount: _readings.length),
+                      );
+                    },
+                  ),
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator()),
                       ),
-              ),
-            ],
+                    ),
+                  const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+                ],
+              ],
+            ),
           ),
           Positioned(
             right: 16,
@@ -269,14 +366,15 @@ class _ReadingsScreenState extends State<ReadingsScreen> {
                 onPressed: _isLoading
                     ? null
                     : () async {
-                        final created = await Navigator.of(context).push<bool>(
-                          MaterialPageRoute<bool>(
-                            builder: (context) =>
-                                const ReadingCreateScreen(),
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute<dynamic>(
+                            builder: (context) => const ReadingCreateScreen(),
                           ),
                         );
-                        if (created == true) {
-                          _loadReadings();
+                        if (result is Reading && mounted) {
+                          _openDetails(result.id);
+                        } else if (result == true) {
+                          _loadReadings(refresh: true);
                         }
                       },
                 icon: const Icon(Icons.add),
@@ -290,11 +388,14 @@ class _ReadingsScreenState extends State<ReadingsScreen> {
   }
 
   Future<void> _openDetails(String readingId) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute<dynamic>(
         builder: (context) => ReadingDetailScreen(readingId: readingId),
       ),
     );
+    if (result == true) {
+      _loadReadings(refresh: true);
+    }
   }
 }
 
@@ -313,7 +414,7 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = DateFormat('dd/MM/yyyy', 'fr_CD');
+    final formatter = DateFormat('EEE d MMM yyyy', 'fr_CD');
     final display = value == null ? '-' : formatter.format(value!);
     return InkWell(
       onTap: onTap,
@@ -323,10 +424,7 @@ class _DateField extends StatelessWidget {
           labelText: label,
           suffixIcon: onClear == null
               ? const Icon(Icons.calendar_today_outlined, size: 18)
-              : IconButton(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close),
-                ),
+              : IconButton(onPressed: onClear, icon: const Icon(Icons.close)),
         ),
         child: Text(display),
       ),
@@ -348,7 +446,7 @@ class _ReadingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final formatter = DateFormat('dd/MM/yyyy');
+    final formatter = DateFormat('EEEE d MMMM yyyy', 'fr_CD');
     final number = NumberFormat('#,##0.##');
 
     return Card(
@@ -423,7 +521,7 @@ class _LoadingState extends StatelessWidget {
         children: <Widget>[
           CircularProgressIndicator(),
           SizedBox(height: 12),
-          Text('Chargement des releves...'),
+          Text('Chargement des relevés...'),
         ],
       ),
     );
@@ -445,7 +543,7 @@ class _EmptyState extends StatelessWidget {
               const Icon(Icons.water_drop_outlined, size: 40),
               const SizedBox(height: 8),
               Text(
-                'Aucun releve trouve.',
+                'Aucun relevé trouvé.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ],
