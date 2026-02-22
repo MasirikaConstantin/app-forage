@@ -103,6 +103,10 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Subscriber?> fetchSubscriber(String id) async {
+    return await _repository.fetchSubscriber(id);
+  }
+
   Future<void> saveAuthToken({
     required String token,
     required String tokenType,

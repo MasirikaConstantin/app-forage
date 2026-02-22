@@ -77,6 +77,23 @@ class ApiClient {
     return items.map(Subscriber.fromApi).toList();
   }
 
+  Future<Subscriber?> fetchSubscriber(String id) async {
+    debugPrint('GET $baseUrl$subscribersPath/$id (auth=${_token != null})');
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl$subscribersPath/$id'),
+        headers: _headers(),
+      );
+      debugPrint('GET subscriber status=${response.statusCode}');
+      _ensureSuccess(response);
+      final payload = jsonDecode(response.body);
+      return Subscriber.fromApi(payload);
+    } catch (e) {
+      debugPrint('Error fetching subscriber $id: $e');
+      return null;
+    }
+  }
+
   Future<PaginatedResponse<Reading>> fetchReadings({
     String? abonneId,
     DateTime? dateFrom,

@@ -1,3 +1,5 @@
+import 'releve.dart';
+
 class Subscriber {
   const Subscriber({
     required this.id,
@@ -9,6 +11,7 @@ class Subscriber {
     required this.active,
     required this.startDate,
     required this.monthlyFee,
+    this.releves,
   });
 
   final String id;
@@ -20,6 +23,7 @@ class Subscriber {
   final bool active;
   final DateTime startDate;
   final double monthlyFee;
+  final List<Releve>? releves;
 
   Map<String, dynamic> toApiPayload() {
     final nameParts = _splitName(fullName);
@@ -87,6 +91,7 @@ class Subscriber {
     bool? active,
     DateTime? startDate,
     double? monthlyFee,
+    List<Releve>? releves,
   }) {
     return Subscriber(
       id: id ?? this.id,
@@ -98,40 +103,52 @@ class Subscriber {
       active: active ?? this.active,
       startDate: startDate ?? this.startDate,
       monthlyFee: monthlyFee ?? this.monthlyFee,
+      releves: releves ?? this.releves,
     );
   }
 
   static Subscriber fromApi(Map<String, dynamic> json) {
-    final id = _stringFromKeys(json, <String>['id', 'subscriber_id', 'uuid']) ??
+    final id =
+        _stringFromKeys(json, <String>['id', 'subscriber_id', 'uuid']) ??
         DateTime.now().microsecondsSinceEpoch.toString();
     final nom = _stringFromKeys(json, <String>['nom', 'last_name']);
     final prenom = _stringFromKeys(json, <String>['prenom', 'first_name']);
-    final fallbackName = _stringFromKeys(json, <String>[
-          'full_name',
-          'fullname',
-          'name',
-        ]) ??
+    final fallbackName =
+        _stringFromKeys(json, <String>['full_name', 'fullname', 'name']) ??
         'Sans nom';
     final fullName = _composeName(nom, prenom, fallbackName);
     final email = _stringFromKeys(json, <String>['email', 'mail']) ?? '';
-    final phone =
-        _stringFromKeys(json, <String>['phone', 'telephone']) ?? '';
-    final location = _stringFromKeys(
-          json,
-          <String>['location', 'adresse', 'zone', 'quartier'],
-        ) ??
+    final phone = _stringFromKeys(json, <String>['phone', 'telephone']) ?? '';
+    final location =
+        _stringFromKeys(json, <String>[
+          'location',
+          'adresse',
+          'zone',
+          'quartier',
+        ]) ??
         '';
-    final plan = _stringFromKeys(json, <String>['plan', 'forfait']) ?? 'Standard';
+    final plan =
+        _stringFromKeys(json, <String>['plan', 'forfait']) ?? 'Standard';
     final active =
         _boolFromKeys(json, <String>['active', 'is_active', 'est_actif']) ??
-            true;
-    final startDate = _dateFromKeys(
-          json,
-          <String>['created_at', 'updated_at', 'date_naissance', 'start_date'],
-        ) ??
+        true;
+    final startDate =
+        _dateFromKeys(json, <String>[
+          'created_at',
+          'updated_at',
+          'date_naissance',
+          'start_date',
+        ]) ??
         DateTime.now();
     final monthlyFee =
         _doubleFromKeys(json, <String>['monthly_fee', 'fee', 'amount']) ?? 0;
+
+    List<Releve>? releves;
+    if (json['releves'] != null) {
+      releves = (json['releves'] as List<dynamic>)
+          .map((item) => Releve.fromApi(item as Map<String, dynamic>))
+          .toList();
+    }
 
     return Subscriber(
       id: id,
@@ -143,13 +160,11 @@ class Subscriber {
       active: active,
       startDate: startDate,
       monthlyFee: monthlyFee,
+      releves: releves,
     );
   }
 
-  static String? _stringFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static String? _stringFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is String && value.trim().isNotEmpty) {
@@ -175,10 +190,7 @@ class Subscriber {
     return null;
   }
 
-  static DateTime? _dateFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static DateTime? _dateFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is String && value.isNotEmpty) {
@@ -191,10 +203,7 @@ class Subscriber {
     return null;
   }
 
-  static double? _doubleFromKeys(
-    Map<String, dynamic> json,
-    List<String> keys,
-  ) {
+  static double? _doubleFromKeys(Map<String, dynamic> json, List<String> keys) {
     for (final key in keys) {
       final value = json[key];
       if (value is num) return value.toDouble();
@@ -211,11 +220,7 @@ class Subscriber {
     return (parts.first, parts.sublist(1).join(' '));
   }
 
-  static String _composeName(
-    String? nom,
-    String? prenom,
-    String fallback,
-  ) {
+  static String _composeName(String? nom, String? prenom, String fallback) {
     final nameParts = <String>[];
     if (nom != null && nom.isNotEmpty) nameParts.add(nom);
     if (prenom != null && prenom.isNotEmpty) nameParts.add(prenom);

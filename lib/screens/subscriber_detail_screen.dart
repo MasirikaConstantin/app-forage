@@ -1,51 +1,149 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../models/releve.dart';
 import '../models/subscriber.dart';
 import '../widgets/app_scope.dart';
 import 'subscriber_form_dialog.dart';
 
-class SubscriberDetailScreen extends StatelessWidget {
+class SubscriberDetailScreen extends StatefulWidget {
   const SubscriberDetailScreen({super.key, required this.subscriberId});
 
   final String subscriberId;
 
   @override
-  Widget build(BuildContext context) {
+  State<SubscriberDetailScreen> createState() => _SubscriberDetailScreenState();
+}
+
+class _SubscriberDetailScreenState extends State<SubscriberDetailScreen> {
+  Subscriber? subscriber;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadSubscriberFromApi();
+  }
+
+  Future<void> _loadSubscriberFromApi() async {
+    setState(() => isLoading = true);
+    try {
+      // Utiliser la méthode du store pour récupérer l'abonné avec ses relevés
+      final store = AppScope.of(context);
+      final subscriber = await store.fetchSubscriber(widget.subscriberId);
+
+      if (subscriber != null && mounted) {
+        setState(() => this.subscriber = subscriber);
+      }
+    } catch (e) {
+      debugPrint('Error loading subscriber from API: $e');
+      // Fallback au cache local
+      _loadSubscriberFromCache();
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<String?> _getAuthToken() async {
+    // Essayer de récupérer le token depuis plusieurs sources
+    try {
+      // Pour l'instant, on va essayer de charger depuis l'API sans token
+      // et voir si ça marche, sinon on utilisera le cache
+      return null; // Temporairement null pour tester
+    } catch (e) {
+      debugPrint('Error getting auth token: $e');
+      return null;
+    }
+  }
+
+  Future<void> _loadSubscriberFromCache() async {
     final store = AppScope.of(context);
-    Subscriber? subscriber;
+    debugPrint('Store subscribers count: ${store.subscribers.length}');
+    debugPrint('Looking for subscriber ID: ${widget.subscriberId}');
+
     for (final item in store.subscribers) {
-      if (item.id == subscriberId) {
-        subscriber = item;
+      debugPrint('Checking subscriber: ${item.id} - ${item.fullName}');
+      if (item.id == widget.subscriberId) {
+        if (mounted) {
+          debugPrint('Found subscriber in cache: ${item.fullName}');
+          setState(() => subscriber = item);
+        }
         break;
       }
     }
 
-    final current = subscriber;
+    // Si toujours pas trouvé après le fallback, afficher quand même l'erreur
+    if (subscriber == null && mounted) {
+      debugPrint('Subscriber not found in cache, showing dummy');
+      setState(
+        () => subscriber = Subscriber(
+          id: widget.subscriberId,
+          fullName: 'Chargement...',
+          email: '',
+          phone: '',
+          location: '',
+          plan: '',
+          active: true,
+          startDate: DateTime.now(),
+          monthlyFee: 0.0,
+          releves: [],
+        ),
+      );
+    }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Détails abonné')),
-      body: current == null
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : subscriber == null
           ? _MissingSubscriber(onBack: () => Navigator.of(context).pop())
           : SafeArea(
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: <Widget>[
-                  _HeaderCard(subscriber: current),
-                  _InfoGrid(subscriber: current),
+                  _HeaderCard(subscriber: subscriber!),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        child: FilledButton.icon(
+                          onPressed: () => showSubscriberFormDialog(
+                            context,
+                            subscriber: subscriber,
+                          ),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Modifier'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 120,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _confirmDelete(context, subscriber!),
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Supprimer'),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () =>
-                        showSubscriberFormDialog(context, subscriber: current),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Modifier'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => _confirmDelete(context, current),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Supprimer'),
-                  ),
+                  _InfoGrid(subscriber: subscriber!),
+                  if (subscriber!.releves != null &&
+                      subscriber!.releves!.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _FacturationSection(releves: subscriber!.releves!),
+                  ],
                 ],
               ),
             ),
@@ -196,6 +294,211 @@ class _InfoTile extends StatelessWidget {
         leading: Icon(icon),
         title: Text(label),
         subtitle: Text(value),
+      ),
+    );
+  }
+}
+
+class _FacturationSection extends StatelessWidget {
+  const _FacturationSection({required this.releves});
+
+  final List<Releve> releves;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Historique des facturations',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: releves.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final releve = releves[index];
+                final facturation = releve.facturation;
+
+                if (facturation == null) {
+                  return _ReleveCard(releve: releve);
+                }
+
+                return _FacturationCard(
+                  releve: releve,
+                  facturation: facturation,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class _FacturationCard extends StatelessWidget {
+  const _FacturationCard({required this.releve, required this.facturation});
+
+  final Releve releve;
+  final Facturation facturation;
+
+  @override
+  Widget build(BuildContext context) {
+    final montant = double.tryParse(facturation.montantTotal) ?? 0;
+    final estPaye = facturation.estPaye == 1;
+    final theme = Theme.of(context);
+
+    return Card(
+      color: estPaye 
+          ? theme.colorScheme.surfaceVariant.withOpacity(0.5)  // Vert adapté au thème
+          : theme.colorScheme.errorContainer.withOpacity(0.3), // Orange/rouge adapté
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  facturation.periode,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: estPaye 
+                        ? theme.colorScheme.primary  // Utiliser la couleur primaire
+                        : theme.colorScheme.error,   // Utiliser la couleur d'erreur
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    estPaye ? 'Payé' : 'Non payé',
+                    style: TextStyle(
+                      color: theme.colorScheme.onPrimary, // Texte contrasté
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Consommation: ${facturation.consommationM3} m³',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Flexible(
+                  child: Text(
+                    'Prix: ${facturation.prixM3} CDF/m³',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 4),
+            
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Flexible(
+                  child: Text('Index: ${releve.index}'),
+                ),
+                Flexible(
+                  child: Text(
+                    '${montant.toStringAsFixed(0)} CDF',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: montant < 0 
+                          ? theme.colorScheme.error  // Rouge adapté au thème
+                          : theme.colorScheme.primary, // Vert/primaire adapté
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 4),
+            Text(
+              'Date relevé: ${releve.dateReleve}',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class _ReleveCard extends StatelessWidget {
+  const _ReleveCard({required this.releve});
+
+  final Releve releve;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Relevé sans facturation',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Index: ${releve.index}'),
+                Text('Index cumulé: ${releve.cumulIndex}'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Date relevé: ${releve.dateReleve}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

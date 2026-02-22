@@ -50,6 +50,10 @@ class AppRepository {
     return entities.map(_mapSubscriberEntity).toList();
   }
 
+  Future<Subscriber?> fetchSubscriber(String id) async {
+    return await _apiClient.fetchSubscriber(id);
+  }
+
   Future<List<AppParameter>> fetchParameters() async {
     return _apiClient.fetchParameters();
   }
