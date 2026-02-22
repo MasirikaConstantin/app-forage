@@ -55,31 +55,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final formatter = NumberFormat('#,##0.##');
     final background = theme.colorScheme.surface;
     final stats = _stats;
+    final showStatsSkeleton = _loading && stats == null;
 
-    final summaryCards = <Widget>[
-      SummaryCard(
-        title: 'Utilisateurs',
-        value: (stats?.users.total ?? store.users.length).toString(),
-        icon: Icons.people_outline,
-      ),
-      SummaryCard(
-        title: 'Abonnés',
-        value: (stats?.abonnes.total ?? store.subscribers.length).toString(),
-        icon: Icons.water_drop_outlined,
-        accentColor: const Color(0xFF0B6E4F),
-      ),
-      SummaryCard(
-        title: 'Relevés',
-        value: (stats?.releves.total ?? 0).toString(),
-        icon: Icons.list_alt_outlined,
-      ),
-      SummaryCard(
-        title: 'Facturations',
-        value: (stats?.facturations.total ?? 0).toString(),
-        icon: Icons.receipt_long_outlined,
-        accentColor: const Color(0xFFD98C3F),
-      ),
-    ];
+    final summaryCards = showStatsSkeleton
+        ? List<Widget>.generate(4, (_) => const _SummaryCardSkeleton())
+        : <Widget>[
+            SummaryCard(
+              title: 'Utilisateurs',
+              value: (stats?.users.total ?? store.users.length).toString(),
+              icon: Icons.people_outline,
+            ),
+            SummaryCard(
+              title: 'Abonnés',
+              value: (stats?.abonnes.total ?? store.subscribers.length)
+                  .toString(),
+              icon: Icons.water_drop_outlined,
+              accentColor: const Color(0xFF0B6E4F),
+            ),
+            SummaryCard(
+              title: 'Relevés',
+              value: (stats?.releves.total ?? 0).toString(),
+              icon: Icons.list_alt_outlined,
+            ),
+            SummaryCard(
+              title: 'Facturations',
+              value: (stats?.facturations.total ?? 0).toString(),
+              icon: Icons.receipt_long_outlined,
+              accentColor: const Color(0xFFD98C3F),
+            ),
+          ];
 
     final details = stats == null
         ? <_StatItem>[]
@@ -179,30 +183,16 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 16),
-            if (_loading)
+            if (showStatsSkeleton)
+              const _StatGridSkeleton()
+            else if (_loading)
               const Center(child: CircularProgressIndicator())
             else if (details.isNotEmpty)
               _StatGrid(items: details),
             const SizedBox(height: 24),
-            FadeSlideIn(
-              delay: const Duration(milliseconds: 120),
-              child: _InfoCard(
-                title: 'Synchronisation',
-                description:
-                    'Les donnees sont mises a jour automatiquement lorsque la connexion est disponible.',
-                icon: Icons.sync,
-              ),
-            ),
+            
             const SizedBox(height: 12),
-            FadeSlideIn(
-              delay: const Duration(milliseconds: 200),
-              child: _InfoCard(
-                title: 'Suivi quotidien',
-                description:
-                    'Utilisez les menus Utilisateurs, Abonnés et Relevés pour modifier ou consulter les fiches.',
-                icon: Icons.fact_check_outlined,
-              ),
-            ),
+            
           ],
         ),
       ),
@@ -305,6 +295,128 @@ class _StatGrid extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _SummaryCardSkeleton extends StatelessWidget {
+  const _SummaryCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surface = theme.cardTheme.color ?? theme.colorScheme.surface;
+    final shadowOpacity = theme.brightness == Brightness.dark ? 0.0 : 0.06;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 180),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: shadowOpacity),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: const Row(
+        children: <Widget>[
+          _SkeletonBlock(height: 44, width: 44, shape: BoxShape.circle),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                _SkeletonBlock(height: 12, width: 86),
+                SizedBox(height: 8),
+                _SkeletonBlock(height: 18, width: 52),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatGridSkeleton extends StatelessWidget {
+  const _StatGridSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final computed = (width / 260).floor();
+        final crossAxisCount = computed.clamp(1, 3);
+        const mainAxisExtent = 90.0;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisExtent: mainAxisExtent,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: 6,
+          itemBuilder: (context, index) {
+            return const Card(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    _SkeletonBlock(height: 12, width: 130),
+                    SizedBox(height: 8),
+                    _SkeletonBlock(height: 14, width: 86),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({
+    required this.height,
+    required this.width,
+    this.shape = BoxShape.rectangle,
+  });
+
+  final double height;
+  final double width;
+  final BoxShape shape;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.75,
+        ),
+        shape: shape,
+        borderRadius: shape == BoxShape.circle
+            ? null
+            : BorderRadius.circular(8),
+      ),
     );
   }
 }

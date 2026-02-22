@@ -101,17 +101,22 @@ class _SubscriberDetailScreenState extends State<SubscriberDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentSubscriber = subscriber;
+    final releves = currentSubscriber?.releves;
+    final shouldShowFacturationSkeleton =
+        isLoading && (releves == null || releves.isEmpty);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Détails abonné')),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : subscriber == null
-          ? _MissingSubscriber(onBack: () => Navigator.of(context).pop())
+      body: currentSubscriber == null
+          ? isLoading
+                ? const _SubscriberDetailSkeleton()
+                : _MissingSubscriber(onBack: () => Navigator.of(context).pop())
           : SafeArea(
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: <Widget>[
-                  _HeaderCard(subscriber: subscriber!),
+                  _HeaderCard(subscriber: currentSubscriber),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -120,7 +125,7 @@ class _SubscriberDetailScreenState extends State<SubscriberDetailScreen> {
                         child: FilledButton.icon(
                           onPressed: () => showSubscriberFormDialog(
                             context,
-                            subscriber: subscriber,
+                            subscriber: currentSubscriber,
                           ),
                           icon: const Icon(Icons.edit_outlined),
                           label: const Text('Modifier'),
@@ -130,7 +135,8 @@ class _SubscriberDetailScreenState extends State<SubscriberDetailScreen> {
                       SizedBox(
                         width: 120,
                         child: OutlinedButton.icon(
-                          onPressed: () => _confirmDelete(context, subscriber!),
+                          onPressed: () =>
+                              _confirmDelete(context, currentSubscriber),
                           icon: const Icon(Icons.delete_outline),
                           label: const Text('Supprimer'),
                         ),
@@ -138,12 +144,12 @@ class _SubscriberDetailScreenState extends State<SubscriberDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _InfoGrid(subscriber: subscriber!),
-                  if (subscriber!.releves != null &&
-                      subscriber!.releves!.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _FacturationSection(releves: subscriber!.releves!),
-                  ],
+                  _InfoGrid(subscriber: currentSubscriber),
+                  const SizedBox(height: 24),
+                  _FacturationSection(
+                    releves: releves ?? const <Releve>[],
+                    isLoading: shouldShowFacturationSkeleton,
+                  ),
                 ],
               ),
             ),
@@ -300,12 +306,55 @@ class _InfoTile extends StatelessWidget {
 }
 
 class _FacturationSection extends StatelessWidget {
-  const _FacturationSection({required this.releves});
+  const _FacturationSection({required this.releves, this.isLoading = false});
 
   final List<Releve> releves;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (isLoading) {
+      return const _FacturationSkeletonSection();
+    }
+
+    if (releves.isEmpty) {
+      return Card(
+        elevation: 1,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Historique des facturations',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Aucune facturation disponible pour cet abonné.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    const maxListHeight = 420.0;
+    const estimatedItemHeight = 138.0;
+    const separatorHeight = 8.0;
+    final estimatedTotalHeight =
+        (releves.length * estimatedItemHeight) +
+        ((releves.length - 1) * separatorHeight);
+    final listHeight = estimatedTotalHeight
+        .clamp(estimatedItemHeight, maxListHeight)
+        .toDouble();
+    final useScrollableList = estimatedTotalHeight > maxListHeight;
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -321,24 +370,29 @@ class _FacturationSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: releves.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final releve = releves[index];
-                final facturation = releve.facturation;
+            SizedBox(
+              height: listHeight,
+              child: ListView.separated(
+                primary: false,
+                itemCount: releves.length,
+                physics: useScrollableList
+                    ? const BouncingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final releve = releves[index];
+                  final facturation = releve.facturation;
 
-                if (facturation == null) {
-                  return _ReleveCard(releve: releve);
-                }
+                  if (facturation == null) {
+                    return _ReleveCard(releve: releve);
+                  }
 
-                return _FacturationCard(
-                  releve: releve,
-                  facturation: facturation,
-                );
-              },
+                  return _FacturationCard(
+                    releve: releve,
+                    facturation: facturation,
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -346,8 +400,6 @@ class _FacturationSection extends StatelessWidget {
     );
   }
 }
-
-
 
 class _FacturationCard extends StatelessWidget {
   const _FacturationCard({required this.releve, required this.facturation});
@@ -360,40 +412,57 @@ class _FacturationCard extends StatelessWidget {
     final montant = double.tryParse(facturation.montantTotal) ?? 0;
     final estPaye = facturation.estPaye == 1;
     final theme = Theme.of(context);
+    final statusColor = estPaye
+        ? theme.colorScheme.primary
+        : theme.colorScheme.error;
+    final statusBackground = estPaye
+        ? theme.colorScheme.primary
+        : theme.colorScheme.error;
+    final statusForeground = estPaye
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onError;
 
     return Card(
-      color: estPaye 
-          ? theme.colorScheme.surfaceVariant.withOpacity(0.5)  // Vert adapté au thème
-          : theme.colorScheme.errorContainer.withOpacity(0.3), // Orange/rouge adapté
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: statusColor.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Row(
               children: [
-                Text(
-                  facturation.periode,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    facturation.periode,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: estPaye 
-                        ? theme.colorScheme.primary  // Utiliser la couleur primaire
-                        : theme.colorScheme.error,   // Utiliser la couleur d'erreur
+                    color: statusBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     estPaye ? 'Payé' : 'Non payé',
                     style: TextStyle(
-                      color: theme.colorScheme.onPrimary, // Texte contrasté
+                      color: statusForeground,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -401,51 +470,51 @@ class _FacturationCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 8),
-            
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
+
+            Row(
               children: [
-                Flexible(
+                Expanded(
                   child: Text(
                     'Consommation: ${facturation.consommationM3} m³',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Flexible(
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
                     'Prix: ${facturation.prixM3} CDF/m³',
+                    textAlign: TextAlign.end,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 4),
-            
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
+
+            Row(
               children: [
-                Flexible(
-                  child: Text('Index: ${releve.index}'),
+                Expanded(
+                  child: Text(
+                    'Index: ${releve.index}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                Flexible(
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
                     '${montant.toStringAsFixed(0)} CDF',
+                    textAlign: TextAlign.end,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: montant < 0 
-                          ? theme.colorScheme.error  // Rouge adapté au thème
-                          : theme.colorScheme.primary, // Vert/primaire adapté
+                      color: montant < 0
+                          ? theme.colorScheme.error
+                          : statusColor,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -453,7 +522,7 @@ class _FacturationCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 4),
             Text(
               'Date relevé: ${releve.dateReleve}',
@@ -465,6 +534,7 @@ class _FacturationCard extends StatelessWidget {
     );
   }
 }
+
 class _ReleveCard extends StatelessWidget {
   const _ReleveCard({required this.releve});
 
@@ -486,10 +556,23 @@ class _ReleveCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Index: ${releve.index}'),
-                Text('Index cumulé: ${releve.cumulIndex}'),
+                Expanded(
+                  child: Text(
+                    'Index: ${releve.index}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Index cumulé: ${releve.cumulIndex}',
+                    textAlign: TextAlign.end,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -499,6 +582,86 @@ class _ReleveCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FacturationSkeletonSection extends StatelessWidget {
+  const _FacturationSkeletonSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Historique des facturations',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const _SkeletonBox(height: 76),
+            const SizedBox(height: 8),
+            const _SkeletonBox(height: 76),
+            const SizedBox(height: 8),
+            const _SkeletonBox(height: 76),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubscriberDetailSkeleton extends StatelessWidget {
+  const _SubscriberDetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: const [
+          _SkeletonBox(height: 82),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _SkeletonBox(height: 40)),
+              SizedBox(width: 8),
+              Expanded(child: _SkeletonBox(height: 40)),
+            ],
+          ),
+          SizedBox(height: 24),
+          _SkeletonBox(height: 96),
+          SizedBox(height: 12),
+          _SkeletonBox(height: 96),
+          SizedBox(height: 24),
+          _FacturationSkeletonSection(),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
       ),
     );
   }
